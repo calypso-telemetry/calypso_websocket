@@ -1,0 +1,13 @@
+{application, calypso_websocket, [
+  {description, "Calypso websocket listener implementation"},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+    kernel,
+    stdlib,
+    calypso_core,
+    cowboy
+  ]},
+  {mod, {calypso_websocket_app, []}},
+  {env, []}
+]}.
