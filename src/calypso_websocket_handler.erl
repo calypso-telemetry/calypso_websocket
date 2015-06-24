@@ -22,6 +22,8 @@
 	encode_fun :: fun((term()) -> term())
 }).
 
+-type close_code() :: 1000..4999.
+
 -type frame() :: close | ping | pong
 	| {text | binary | close | ping | pong, iodata()}
 	| {close, close_code(), iodata()}.
@@ -46,7 +48,8 @@
 	| {shutdown, Req, State}
 	when Req::cowboy_req:req(), State::any().
 
--callback terminate(Reason, Req, State) -> ok.
+-callback terminate(Reason :: term(), Req, State) -> ok
+	when Req::cowboy_req:req(), State::any().
 
 init(Req, { Modules, Opts}) ->
 	ModulesSt = lists:reverse(lists:foldl(fun(Module, Acc) when is_atom(Module) ->
@@ -87,12 +90,12 @@ websocket_handle(Msg, Req0, State) ->
 			{shutdown, Req, set_st(St, State)}
 	end.
 
-websocket_info({ tick, Ref },  Req, State#state{ ping_time = undefined }) when Ref =:= State#state.ref ->
+websocket_info({ tick, Ref },  Req, State = #state{ ping_time = undefined }) when Ref =:= State#state.ref ->
 	{ reply, { text, <<"ping">> }, Req, tick(State#state{
 		ping_time = calypso_time:now()
 	})};
 
-websocket_info({ tick, Ref },  Req, State#state{ ping_time = Time }) when Ref =:= State#state.ref ->
+websocket_info({ tick, Ref },  Req, State = #state{ ping_time = Time }) when Ref =:= State#state.ref ->
 	case calypso_time:diff(Time + ?TICK, calypso_time:now()) < 0 of
 		true ->
 			{ shutdown, Req, State };
@@ -101,8 +104,8 @@ websocket_info({ tick, Ref },  Req, State#state{ ping_time = Time }) when Ref =:
 	end;
 
 websocket_info(Msg, Req0, State) ->
-	case apply_cmd(fun(Module, Msg, Req, St) ->
-		Module:websocket_info(Msg, Req, St)
+	case apply_cmd(fun(Module, Msg0, Req, St) ->
+		Module:websocket_info(Msg0, Req, St)
 	end, Msg, Req0, State)of
 		{ ok, NewReq, NewState } ->
 			{ ok, NewReq, NewState };
@@ -150,12 +153,12 @@ apply_cmd(Fun, Cmd, Req, State) ->
 apply_cmd(_Fun, _Cmd, Req, [], Acc) ->
 	{ ok, Req, lists:reverse(Acc) };
 
-apply_cmd(Fun, Msg, Req, [{ Module, St} = ModuleItem | ModulesSt ], Acc) ->
+apply_cmd(Fun, Msg, Req, [{ Module, St} | ModulesSt ], Acc) ->
   case Fun(Module, Msg, Req, St) of
 		{ok, NewReq, NewSt } ->
-			apply_cmd(Fun, Msg, Req, ModulesSt, [ ModuleItem | Acc ]);
+			apply_cmd(Fun, Msg, NewReq, ModulesSt, [ { Module, NewSt } | Acc ]);
 		{ok, NewReq, NewSt, hibernate} ->
-			apply_cmd(Fun, Msg, Req, ModulesSt, [ ModuleItem | Acc ]);
+			apply_cmd(Fun, Msg, NewReq, ModulesSt, [ { Module, NewSt } | Acc ]);
 		{reply, Frames, NewReq, NewSt} ->
 			{ { reply, Frames }, NewReq, collect(Module, NewSt, ModulesSt, Acc) };
 		{reply, Frames, NewReq, NewSt, hibernate} ->
