@@ -8,7 +8,7 @@
 
 -define(APP, calypso_websocket).
 
-cowboy_route(Module, Url, Opt) when is_atom(Module), is_list(Url) ->
+cowboy_route(Url, Module, Opt) when is_atom(Module), is_list(Url) ->
   { Url, calypso_websocket_handler, { Module, Opt }}.
 
 
