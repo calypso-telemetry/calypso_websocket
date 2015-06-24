@@ -9,5 +9,7 @@
     cowboy
   ]},
   {mod, {calypso_websocket_app, []}},
-  {env, []}
+  {env, [
+    { handlers, []}
+  ]}
 ]}.
